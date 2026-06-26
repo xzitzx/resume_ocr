@@ -14,6 +14,8 @@ def test_parse_sample_resume():
     assert result.work_experience
     assert result.projects
     assert result.parser == "rules"
+    assert result.confidence_score > 0
+    assert result.agent_steps
 
 
 def test_llm_failure_falls_back_to_rules():
@@ -29,3 +31,4 @@ def test_llm_failure_falls_back_to_rules():
     assert result.parser == "rules"
     assert result.name == "张三"
     assert "LLM parsing failed" in result.warnings[0]
+    assert result.quality_issues == []

@@ -8,7 +8,8 @@
 - 支持 `.txt` / `.md`，可直接运行。
 - 可选支持 `.pdf`、`.docx`、图片 OCR。
 - 自动抽取姓名、邮箱、手机号、技能、教育经历、工作经历、项目经历、证书、语言等字段。
-- 大模型解析失败时可自动回退到本地规则解析。
+- 带 agent 工作流：文本质量检查、结构化解析、结果校验、必要时二次修复、置信度评分。
+- 大模型解析失败时可选择报错或回退到本地规则解析。
 
 ## 快速开始
 
@@ -178,6 +179,17 @@ MCP 配置示例：
   "certificates": [],
   "languages": [],
   "raw_text": "...",
-  "warnings": []
+  "warnings": [],
+  "parser": "llm",
+  "model": "gpt-4o-mini",
+  "confidence_score": 0.88,
+  "quality_issues": [],
+  "agent_steps": [
+    "plan: extract text, parse, validate, repair if useful, finalize",
+    "extract_text: 1200 characters",
+    "text_quality: ok",
+    "parse: llm (gpt-4o-mini)",
+    "validate_result: ok"
+  ]
 }
 ```

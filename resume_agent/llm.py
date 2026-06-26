@@ -54,23 +54,54 @@ class OpenAICompatibleClient:
         if not self.api_key:
             raise LLMParseError("LLM_API_KEY or OPENAI_API_KEY is not configured.")
 
-        payload = {
-            "model": self.model,
-            "messages": [
+        data = self._chat_json(
+            [
                 {"role": "system", "content": self._system_prompt()},
                 {"role": "user", "content": self._user_prompt(text)},
-            ],
-            "temperature": 0,
-            "response_format": {"type": "json_object"},
-        }
-        response = self._post_json(f"{self.base_url}/chat/completions", payload)
-        content = self._extract_content(response)
-        data = self._loads_json(content)
+            ]
+        )
         result = ParseResult.from_dict(data)
         result.parser = "llm"
         result.model = self.model
         result.raw_text = text
         return result
+
+    def repair_resume(self, text: str, current_result: ParseResult, issues: list[str]) -> ParseResult:
+        if not self.api_key:
+            raise LLMParseError("LLM_API_KEY or OPENAI_API_KEY is not configured.")
+
+        data = self._chat_json(
+            [
+                {"role": "system", "content": self._repair_prompt()},
+                {
+                    "role": "user",
+                    "content": (
+                        "Resume text:\n"
+                        f"{text[:30000]}\n\n"
+                        "Current JSON:\n"
+                        f"{json.dumps(current_result.to_dict(), ensure_ascii=False)}\n\n"
+                        "Validation issues to fix:\n"
+                        f"{json.dumps(issues, ensure_ascii=False)}"
+                    ),
+                },
+            ]
+        )
+        result = ParseResult.from_dict(data)
+        result.parser = "llm_repaired"
+        result.model = self.model
+        result.raw_text = text
+        return result
+
+    def _chat_json(self, messages: list[dict[str, str]]) -> dict[str, Any]:
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+        }
+        response = self._post_json(f"{self.base_url}/chat/completions", payload)
+        content = self._extract_content(response)
+        return self._loads_json(content)
 
     def _post_json(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
         request = urllib.request.Request(
@@ -137,3 +168,11 @@ class OpenAICompatibleClient:
 
     def _user_prompt(self, text: str) -> str:
         return f"Parse this resume text:\n\n{text[:30000]}"
+
+    def _repair_prompt(self) -> str:
+        return (
+            "You are a resume parsing QA and repair agent. Return only one corrected JSON object.\n"
+            "You will receive resume text, an existing JSON parse, and validation issues.\n"
+            "Fix only fields that are wrong or missing according to the resume text.\n"
+            "Do not invent facts. Keep the same JSON structure as the current JSON."
+        )

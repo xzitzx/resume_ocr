@@ -49,6 +49,9 @@ class ParseResult:
     warnings: list[str] = field(default_factory=list)
     parser: str = "rules"
     model: str = ""
+    confidence_score: float = 0.0
+    quality_issues: list[str] = field(default_factory=list)
+    agent_steps: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -74,6 +77,9 @@ class ParseResult:
             warnings=_string_list(data.get("warnings")),
             parser=str(data.get("parser") or "llm"),
             model=str(data.get("model") or ""),
+            confidence_score=_float_value(data.get("confidence_score")),
+            quality_issues=_string_list(data.get("quality_issues")),
+            agent_steps=_string_list(data.get("agent_steps")),
         )
 
 
@@ -92,3 +98,10 @@ def _dict_list(value: Any) -> list[dict[str, Any]]:
 def _known_fields(value: dict[str, Any], model_type: type[Any]) -> dict[str, str]:
     names = set(model_type.__dataclass_fields__)
     return {key: str(value.get(key) or "") for key in names}
+
+
+def _float_value(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0

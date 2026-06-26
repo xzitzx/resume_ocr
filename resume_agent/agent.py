@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from .extractors import TextExtractor
-from .llm import LLMParseError, OpenAICompatibleClient
+from .llm import OpenAICompatibleClient
 from .models import ParseResult
 from .parser import ResumeParser
+from .workflow import ResumeAgentWorkflow
 
 
 class ResumeParseAgent:
@@ -16,23 +17,22 @@ class ResumeParseAgent:
         llm_client: OpenAICompatibleClient | None = None,
         use_llm: bool | None = None,
         fallback_to_rules: bool = True,
+        repair_with_llm: bool = True,
     ) -> None:
         self.extractor = extractor or TextExtractor()
         self.parser = parser or ResumeParser()
         self.llm_client = llm_client or OpenAICompatibleClient()
         self.use_llm = self.llm_client.is_configured if use_llm is None else use_llm
         self.fallback_to_rules = fallback_to_rules
+        self.repair_with_llm = repair_with_llm
 
     def parse(self, file_path: str | Path) -> ParseResult:
-        text, warnings = self.extractor.extract(file_path)
-        if self.use_llm:
-            try:
-                result = self.llm_client.parse_resume(text)
-                result.warnings.extend(warnings)
-                return result
-            except LLMParseError as exc:
-                if not self.fallback_to_rules:
-                    raise
-                warnings.append(f"LLM parsing failed, used rule parser instead: {exc}")
-
-        return self.parser.parse(text, warnings=warnings)
+        workflow = ResumeAgentWorkflow(
+            extractor=self.extractor,
+            parser=self.parser,
+            llm_client=self.llm_client,
+            use_llm=self.use_llm,
+            fallback_to_rules=self.fallback_to_rules,
+            repair_with_llm=self.repair_with_llm,
+        )
+        return workflow.run(file_path)
